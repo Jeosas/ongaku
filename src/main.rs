@@ -1,4 +1,5 @@
 mod command;
+mod error;
 
 use clap::{Parser, Subcommand};
 
@@ -29,7 +30,7 @@ enum Commands {
     Verify,
 }
 
-fn main() {
+fn main() -> Result<(), error::OngakuError> {
     let cli = Cli::parse();
 
     match &cli.command {
