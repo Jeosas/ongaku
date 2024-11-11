@@ -2,7 +2,7 @@ use console::{style, Emoji};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::{thread, time::Duration};
 
-use crate::error;
+use crate::{db, error::OngakuError};
 
 static SUCCESS: Emoji<'_, '_> = Emoji("✅", "");
 static INFO: Emoji<'_, '_> = Emoji(" ℹ️", "");
@@ -21,7 +21,11 @@ fn get_spinner_style() -> ProgressStyle {
         .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠇⠏")
 }
 
-pub fn add(name: &str, url: &str) -> Result<(), error::OngakuError> {
+pub fn init() -> Result<(), OngakuError> {
+    db::init()
+}
+
+pub fn add(name: &str, url: &str) -> Result<(), OngakuError> {
     println!("TODO in add command");
     println!(
         "{} Successfully added {} to your library.",
@@ -36,7 +40,7 @@ pub fn add(name: &str, url: &str) -> Result<(), error::OngakuError> {
     Ok(())
 }
 
-pub fn sync(verify_: bool) -> Result<(), error::OngakuError> {
+pub fn sync(verify_: bool) -> Result<(), OngakuError> {
     if verify_ {
         verify(true)?;
     };
@@ -100,7 +104,7 @@ pub fn sync(verify_: bool) -> Result<(), error::OngakuError> {
     Ok(())
 }
 
-pub fn verify(from_sync: bool) -> Result<(), error::OngakuError> {
+pub fn verify(from_sync: bool) -> Result<(), OngakuError> {
     println!("{} Verifying library intergrity", Emoji("🔄", ""));
 
     {

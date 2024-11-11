@@ -1,5 +1,9 @@
 mod command;
+mod db;
 mod error;
+
+use console::{style, Emoji};
+use std::process;
 
 use clap::{Parser, Subcommand};
 
@@ -13,6 +17,8 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Initialize Ongaku in this directory
+    Init,
     /// Add a new link to the library
     Add {
         /// Entry name
@@ -30,12 +36,17 @@ enum Commands {
     Verify,
 }
 
-fn main() -> Result<(), error::OngakuError> {
+fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
+        Commands::Init => command::init(),
         Commands::Add { name, url } => command::add(name, url),
         Commands::Sync { verify } => command::sync(verify.to_owned()),
         Commands::Verify => command::verify(false),
     }
+    .unwrap_or_else(|e| {
+        eprintln!("{} {}", Emoji("💥", ""), style(e.to_string()).bold().red());
+        process::exit(1);
+    });
 }

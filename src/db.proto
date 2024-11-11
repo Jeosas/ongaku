@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package ongaku.db;
+
+// Main Library
+message Library {
+  uint32 version = 1;
+  repeated Entry entry = 2;
+}
+
+message Entry {
+  enum EntryType  {
+    TITLE = 0;
+    PLAYLIST = 1;
+    ARTIST = 2;
+  }
+
+  string original_url = 1;
+  string url = 2;
+  EntryType type = 3;
+  string name = 4;
+  repeated Track track = 5;
+}
+
+message Track {
+  string url = 1;
+  string file = 2;
+}

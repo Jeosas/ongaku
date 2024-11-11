@@ -49,6 +49,9 @@
               ])
               rust-analyzer
               cargo-watch
+
+              # Dev deps
+              protobuf
             ];
 
             LD_LIBRARY_PATH = lib.makeLibraryPath packages;

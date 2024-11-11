@@ -7,4 +7,9 @@ edition = "2021"
 clap = { version = "4.5.20", features = ["derive"] }
 console = "0.15.8"
 indicatif = "0.17.8"
+prost = "0.13.3"
+prost-types = "0.13.3"
 thiserror = "2.0.2"
+
+[build-dependencies]
+prost-build = "0.13.3"
