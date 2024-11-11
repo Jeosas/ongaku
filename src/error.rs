@@ -6,6 +6,10 @@ pub enum OngakuError {
     AlreadyInitialized,
     #[error("Ongaku has not yet been initialized in this directory.")]
     NotInitialized,
-    #[error("Failed to right database: {0}")]
-    DbWriteFailed(String),
+    #[error(transparent)]
+    PbDecodingError(#[from] prost::DecodeError),
+    #[error(transparent)]
+    PbEncodingError(#[from] prost::EncodeError),
+    #[error(transparent)]
+    DatabaseReadWriteError(#[from] std::io::Error),
 }

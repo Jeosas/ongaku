@@ -34,6 +34,10 @@ enum Commands {
     },
     /// Verify library integrity
     Verify,
+
+    /// Dump db in stdout
+    #[cfg(debug_assertions)]
+    Debug,
 }
 
 fn main() {
@@ -44,6 +48,12 @@ fn main() {
         Commands::Add { name, url } => command::add(name, url),
         Commands::Sync { verify } => command::sync(verify.to_owned()),
         Commands::Verify => command::verify(false),
+
+        #[cfg(debug_assertions)]
+        Commands::Debug => {
+            dbg!(db::load().expect("failed to load db"));
+            Ok(())
+        }
     }
     .unwrap_or_else(|e| {
         eprintln!("{} {}", Emoji("💥", ""), style(e.to_string()).bold().red());
