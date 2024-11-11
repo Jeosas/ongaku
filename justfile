@@ -5,4 +5,4 @@ set positional-arguments
   just --unstable --list
 
 @run *args='':
-  cargo run -q -- "$@"
+  RUSTFLAGS="-Adead_code -Aunused_variables" cargo run -q -- "$@"

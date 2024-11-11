@@ -36,6 +36,6 @@ fn main() -> Result<(), error::OngakuError> {
     match &cli.command {
         Commands::Add { name, url } => command::add(name, url),
         Commands::Sync { verify } => command::sync(verify.to_owned()),
-        Commands::Verify => command::verify(),
+        Commands::Verify => command::verify(false),
     }
 }
