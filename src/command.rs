@@ -1,11 +1,22 @@
 use console::{style, Emoji};
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use log::debug;
-use std::{thread, time::Duration};
+use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
+use log::{error, info};
+use std::{
+    num::NonZero,
+    sync::mpsc::channel,
+    thread::{self, available_parallelism},
+    time::Duration,
+};
+use threadpool::ThreadPool;
 
-use crate::{db, error::OngakuError, yt_dlp};
+use crate::{
+    db::{self, entry::EntryType, Track},
+    error::OngakuError,
+    yt_dlp,
+};
 
 static SUCCESS: Emoji<'_, '_> = Emoji("✅", "");
+static WARNING: Emoji<'_, '_> = Emoji("⚠️ ", "");
 static INFO: Emoji<'_, '_> = Emoji(" ℹ️", "");
 
 fn get_bar_style() -> ProgressStyle {
@@ -23,22 +34,22 @@ fn get_spinner_style() -> ProgressStyle {
 }
 
 pub fn init() -> Result<(), OngakuError> {
-    debug!("Running init command");
+    info!("Running init command");
     db::init()
 }
 
 pub fn add(url: &str) -> Result<(), OngakuError> {
-    debug!("Running add command");
+    info!("Running add command");
     let mut library = db::load()?;
 
     let new_entry = yt_dlp::get_url_info(url)?;
 
-    debug!("Checking entry duplication");
+    info!("Checking entry duplication");
     if library.entries.contains_key(&new_entry.id) {
         return Err(OngakuError::AlreadyInLibrary(new_entry.name));
     }
 
-    debug!("Adding entry to library");
+    info!("Adding entry to library");
     library
         .entries
         .insert(new_entry.id.to_owned(), new_entry.clone());
@@ -59,7 +70,15 @@ pub fn add(url: &str) -> Result<(), OngakuError> {
 }
 
 pub fn sync(verify_: bool) -> Result<(), OngakuError> {
-    debug!("Running sync command");
+    #[derive(Debug, Clone)]
+    struct Task {
+        entry_id: String,
+        entry_type: EntryType,
+        entry_name: String,
+        track_url: String,
+    }
+
+    info!("Running sync command");
     if verify_ {
         verify(true)?;
     };
@@ -68,21 +87,20 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
     let spinner_style = get_spinner_style();
 
     println!(
-        "{} {} Reading database",
+        "{} {} Loading database",
         style("[1/3]").bold().dim(),
         Emoji("💽", "")
     );
-    let artists: Vec<i32> = {
+    let mut library = {
         let pb = ProgressBar::new(10)
             .with_style(spinner_style.clone())
-            .with_message("Reading database");
-        pb.enable_steady_tick(Duration::from_millis(80));
+            .with_message("Loading database");
 
-        thread::sleep(Duration::from_secs(2));
+        let library = db::load()?;
 
         pb.finish_and_clear();
 
-        (0..12).collect()
+        library
     };
 
     println!(
@@ -90,17 +108,46 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
         style("[2/3]").bold().dim(),
         Emoji("🔍", "")
     );
-    let tracks: Vec<i32> = {
-        let pb = ProgressBar::new(artists.len() as u64).with_style(bar_style.clone());
+    let track_tasks = {
+        let mut track_tasks: Vec<Task> = Vec::new();
+        for (_, entry) in library
+            .entries
+            .iter()
+            .progress_with_style(bar_style.clone())
+        {
+            let library_tracks: Vec<String> =
+                entry.tracks.iter().map(|t| t.url.to_owned()).collect();
 
-        for _ in artists.iter() {
-            thread::sleep(Duration::from_millis(80));
-            pb.inc(1);
+            match yt_dlp::get_tracks(&entry.url) {
+                Ok(track_urls) => {
+                    for track_url in track_urls {
+                        if library_tracks.contains(&track_url) {
+                            continue;
+                        }
+                        track_tasks.push(Task {
+                            entry_id: entry.id.to_owned(),
+                            entry_type: entry.r#type.try_into().expect("bounded by protobuf"),
+                            entry_name: entry.name.to_owned(),
+                            track_url,
+                        })
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to fetch url ({}): {}", &entry.url, e.to_string());
+                    eprintln!(
+                        "{} {}",
+                        WARNING,
+                        style(format!(
+                            "Failed to fetch tracks for {} ({})",
+                            &entry.name, &entry.url
+                        ))
+                        .yellow()
+                    );
+                }
+            }
         }
 
-        pb.finish_and_clear();
-
-        (0..123).collect()
+        track_tasks
     };
 
     println!(
@@ -109,22 +156,77 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
         Emoji("📥", "")
     );
     {
-        let pb = ProgressBar::new(tracks.len() as u64).with_style(bar_style.clone());
+        let pb = ProgressBar::new(track_tasks.len() as u64).with_style(bar_style.clone());
 
-        for _ in tracks.iter() {
-            thread::sleep(Duration::from_millis(10));
-            pb.inc(1);
+        info!("Creating thread pool");
+        let cpu_count = available_parallelism()
+            .unwrap_or(NonZero::new(1).expect("hardcoded value"))
+            .get();
+        let pool = ThreadPool::new(cpu_count);
+
+        let (tx, rx) = channel();
+        info!("Starting download threads");
+        for task in track_tasks.iter() {
+            let tx = tx.clone();
+            let pb_clone = pb.clone();
+            let t_clone = task.clone();
+            pool.execute(move || {
+                match yt_dlp::download_track(
+                    &t_clone.track_url,
+                    &t_clone.entry_type,
+                    &t_clone.entry_name,
+                ) {
+                    Ok(track_file) => tx
+                        .send((t_clone, track_file))
+                        .expect("channel is waiting for the pool"),
+                    Err(e) => {
+                        error!(
+                            "Failed to fetch url ({}): {}",
+                            &t_clone.track_url,
+                            e.to_string()
+                        );
+                        eprintln!(
+                            "{} {}",
+                            WARNING,
+                            style(format!(
+                                "Failed to download track at {}",
+                                &t_clone.track_url
+                            ))
+                            .yellow(),
+                        );
+                    }
+                };
+                pb_clone.inc(1);
+            });
+        }
+
+        // Drop the last sender to stop `rx` waiting for message.
+        drop(tx);
+
+        info!("Processing thread results");
+        while let Ok((task, file)) = rx.recv() {
+            library
+                .entries
+                .entry(task.entry_id.to_owned())
+                .and_modify(|e| {
+                    e.tracks.push(Track {
+                        url: task.track_url.to_owned(),
+                        file,
+                    })
+                });
         }
 
         pb.finish_and_clear();
     }
+
+    db::save(library)?;
 
     println!("{} Successfully synced library.", SUCCESS);
     Ok(())
 }
 
 pub fn verify(from_sync: bool) -> Result<(), OngakuError> {
-    debug!("Running verify command");
+    info!("Running verify command");
     println!("{} Verifying library intergrity", Emoji("🔄", ""));
 
     {

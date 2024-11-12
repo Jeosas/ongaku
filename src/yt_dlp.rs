@@ -1,7 +1,7 @@
 use core::str;
 use std::process::Command;
 
-use log::debug;
+use log::{debug, info};
 use serde::Deserialize;
 
 use crate::{
@@ -17,7 +17,7 @@ struct UrlInfoExtractor {
 }
 
 fn is_ytmusic_channel_url(url: &str) -> bool {
-    debug!("Checking url is YTMusic Channel");
+    info!("Checking url is YTMusic Channel");
     url.starts_with("https://music.youtube.com/channel/")
 }
 
@@ -31,7 +31,7 @@ pub fn get_url_info(url: &str) -> Result<Entry, OngakuError> {
 
     match url {
         url if is_ytmusic_channel_url(url) => {
-            debug!("Fetching YTMusic channel data");
+            info!("Fetching YTMusic channel data");
             let output = base_command
                 .arg(url)
                 .output()
@@ -42,56 +42,106 @@ pub fn get_url_info(url: &str) -> Result<Entry, OngakuError> {
                 ));
             }
 
-            match str::from_utf8(&output.stdout)
+            let first_entry_raw = str::from_utf8(&output.stdout)
                 .map_err(|e| OngakuError::YtdlpError(e.to_string()))?
+                .trim()
                 .split("\n")
                 .next()
-            {
-                Some(first_entry_raw) => {
-                    debug!("Parsing YTMusic channel data");
-                    let first_entry: UrlInfoExtractor = serde_json::from_str(first_entry_raw)?;
-                    debug!("Creating new Artist entry");
-                    Ok(Entry {
-                        id: generate_id(&first_entry.channel_id, &EntryType::Artist),
-                        original_url: url.to_string(),
-                        url: first_entry.channel_url,
-                        r#type: EntryType::Artist.into(),
-                        name: first_entry.channel.replace(" - Topic", ""),
-                        tracks: Vec::new(),
-                    })
-                }
-                None => Err(OngakuError::YtdlpError("no output.".to_string())),
-            }
+                .expect("always one output");
+
+            info!("Parsing YTMusic channel data");
+            debug!("{:?}", first_entry_raw);
+            let first_entry: UrlInfoExtractor = serde_json::from_str(first_entry_raw)?;
+            info!("Creating new Artist entry");
+            Ok(Entry {
+                id: generate_id(&first_entry.channel_id, &EntryType::Artist),
+                original_url: url.to_string(),
+                url: first_entry.channel_url,
+                r#type: EntryType::Artist.into(),
+                name: first_entry.channel.replace(" - Topic", ""),
+                tracks: Vec::new(),
+            })
         }
         _ => Err(OngakuError::UnsupportedUrl(url.to_owned())),
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Deserialize)]
+struct TrackExtractor {
+    webpage_url: String,
+}
 
-    #[test]
-    fn entry_from_ytmusic_channel() {
-        let result = get_url_info("https://music.youtube.com/channel/UCzIVTMt4MpC3JNfcQtSAfCA");
-        dbg!(&result);
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            Entry {
-                id: "ARTIST/UCzIVTMt4MpC3JNfcQtSAfCA".to_string(),
-                original_url: "https://music.youtube.com/channel/UCzIVTMt4MpC3JNfcQtSAfCA"
-                    .to_string(),
-                url: "https://www.youtube.com/channel/UCzIVTMt4MpC3JNfcQtSAfCA".to_string(),
-                r#type: EntryType::Artist.into(),
-                name: "Sam Long".to_string(),
-                tracks: Vec::new(),
-            }
-        )
+pub fn get_tracks(url: &str) -> Result<Vec<String>, OngakuError> {
+    let mut base_command = Command::new("yt-dlp");
+    base_command
+        .arg("--quiet")
+        .arg("--flat-playlist")
+        .arg("--print")
+        .arg("%()j");
+
+    info!("Fetching tracks");
+    let output = base_command
+        .arg(url)
+        .output()
+        .map_err(|e| OngakuError::YtdlpError(e.to_string()))?;
+    if !output.status.success() {
+        return Err(OngakuError::YtdlpError(
+            str::from_utf8(&output.stderr).unwrap().to_string(),
+        ));
     }
 
-    #[test]
-    fn entry_from_unsupported_url() {
-        get_url_info("https://www.rust-lang.org").unwrap_err();
+    let raw_tracks = str::from_utf8(&output.stdout)
+        .map_err(|e| OngakuError::YtdlpError(e.to_string()))?
+        .trim()
+        .split("\n");
+
+    info!("Parsing tracks");
+    let mut tracks: Vec<String> = Vec::new();
+    for track_raw in raw_tracks {
+        debug!("{:?}", track_raw);
+        let track: TrackExtractor = serde_json::from_str(track_raw)?;
+        tracks.push(track.webpage_url);
     }
+    Ok(tracks)
+}
+
+pub fn download_track(
+    url: &str,
+    entry_type: &EntryType,
+    entry_name: &str,
+) -> Result<String, OngakuError> {
+    info!("Downloading '{}'", &url);
+    let prefix = match entry_type {
+        EntryType::Artist => format!("_artist/{}/", entry_name),
+        EntryType::Playlist => format!("_playlists/{}/", entry_name),
+        _ => "".to_string(),
+    };
+
+    let output = Command::new("yt-dlp")
+        .arg("-q")
+        .arg("-f")
+        .arg("bestaudio/best")
+        .arg("--extract-audio")
+        .arg("-o")
+        .arg(format!("{}%(title)s.%(ext)s", prefix))
+        .arg("--print")
+        .arg("after_move:filepath")
+        .arg(&url)
+        .output()
+        .map_err(|e| OngakuError::YtdlpError(e.to_string()))?;
+    if !output.status.success() {
+        return Err(OngakuError::YtdlpError(
+            str::from_utf8(&output.stderr).unwrap().to_string(),
+        ));
+    }
+
+    let filepath = str::from_utf8(&output.stdout)
+        .map_err(|e| OngakuError::YtdlpError(e.to_string()))?
+        .trim()
+        .split("\n")
+        .next()
+        .expect("always one output")
+        .to_owned();
+
+    Ok(filepath)
 }

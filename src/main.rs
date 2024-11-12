@@ -5,7 +5,7 @@ mod yt_dlp;
 
 use console::{style, Emoji};
 use env_logger::Env;
-use log::{debug, error};
+use log::{error, info};
 use std::{error::Error, process};
 
 use clap::{Parser, Subcommand};
@@ -44,7 +44,7 @@ enum Commands {
 fn main() {
     env_logger::Builder::from_env(Env::default().filter_or("ONGAKU_LOG", "off")).init();
 
-    debug!("Parsing args");
+    info!("Parsing args");
     let cli = Cli::parse();
 
     match &cli.command {
