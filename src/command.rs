@@ -69,7 +69,7 @@ pub fn add(url: &str) -> Result<(), OngakuError> {
     Ok(())
 }
 
-pub fn sync(verify_: bool) -> Result<(), OngakuError> {
+pub fn sync() -> Result<(), OngakuError> {
     #[derive(Debug, Clone)]
     struct Task {
         entry_id: String,
@@ -79,9 +79,6 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
     }
 
     info!("Running sync command");
-    if verify_ {
-        verify(true)?;
-    };
 
     let bar_style = get_bar_style();
     let spinner_style = get_spinner_style();
@@ -222,37 +219,5 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
     db::save(library)?;
 
     println!("{} Successfully synced library.", SUCCESS);
-    Ok(())
-}
-
-pub fn verify(from_sync: bool) -> Result<(), OngakuError> {
-    info!("Running verify command");
-    println!("{} Verifying library intergrity", Emoji("🔄", ""));
-
-    {
-        let m = MultiProgress::new();
-        let pb = m.add(ProgressBar::new(123).with_style(get_bar_style()));
-
-        for n in 0..123 {
-            thread::sleep(Duration::from_millis(100));
-            if n % 50 == 0 {
-                m.println(format!("{} Coudn't find file '{}'.", Emoji("❓", ""), n))
-                    .expect("failed to print log line");
-            }
-            pb.inc(1);
-        }
-
-        pb.finish_and_clear();
-        m.clear().expect("failed to clear MultiProgressBar");
-    };
-
-    println!("{} Verification finished.", SUCCESS);
-    if !from_sync {
-        println!(
-            "{} Found missing files. Run {} to re-download them.",
-            INFO,
-            style("ongaku sync").cyan()
-        );
-    }
     Ok(())
 }

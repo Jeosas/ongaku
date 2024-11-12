@@ -28,13 +28,7 @@ enum Commands {
         url: String,
     },
     /// Sync the library
-    Sync {
-        /// Verify library integrity before syncing
-        #[arg(short, long)]
-        verify: bool,
-    },
-    /// Verify library integrity
-    Verify,
+    Sync,
 
     /// Dump db in stdout
     #[cfg(debug_assertions)]
@@ -50,8 +44,7 @@ fn main() {
     match &cli.command {
         Commands::Init => command::init(),
         Commands::Add { url } => command::add(url),
-        Commands::Sync { verify } => command::sync(verify.to_owned()),
-        Commands::Verify => command::verify(false),
+        Commands::Sync => command::sync(),
 
         #[cfg(debug_assertions)]
         Commands::Debug => {
