@@ -1,9 +1,12 @@
 mod command;
 mod db;
 mod error;
+mod yt_dlp;
 
 use console::{style, Emoji};
-use std::process;
+use env_logger::Env;
+use log::{debug, error};
+use std::{error::Error, process};
 
 use clap::{Parser, Subcommand};
 
@@ -21,8 +24,6 @@ enum Commands {
     Init,
     /// Add a new link to the library
     Add {
-        /// Entry name
-        name: String,
         /// Youtube URL (video, song, playlist, artist)
         url: String,
     },
@@ -41,11 +42,14 @@ enum Commands {
 }
 
 fn main() {
+    env_logger::Builder::from_env(Env::default().filter_or("ONGAKU_LOG", "off")).init();
+
+    debug!("Parsing args");
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Init => command::init(),
-        Commands::Add { name, url } => command::add(name, url),
+        Commands::Add { url } => command::add(url),
         Commands::Sync { verify } => command::sync(verify.to_owned()),
         Commands::Verify => command::verify(false),
 
@@ -57,6 +61,9 @@ fn main() {
     }
     .unwrap_or_else(|e| {
         eprintln!("{} {}", Emoji("💥", ""), style(e.to_string()).bold().red());
+        if let Some(source) = e.source() {
+            error!("{}", source.to_string());
+        }
         process::exit(1);
     });
 }

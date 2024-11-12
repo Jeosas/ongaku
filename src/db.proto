@@ -5,7 +5,7 @@ package ongaku.db;
 // Main Library
 message Library {
   uint32 version = 1;
-  repeated Entry entry = 2;
+  map<string,Entry> entries = 2;
 }
 
 message Entry {
@@ -15,11 +15,12 @@ message Entry {
     ARTIST = 2;
   }
 
-  string original_url = 1;
-  string url = 2;
-  EntryType type = 3;
-  string name = 4;
-  repeated Track track = 5;
+  string id = 1;
+  string original_url = 2;
+  string url = 3;
+  EntryType type = 4;
+  string name = 5;
+  repeated Track tracks = 6;
 }
 
 message Track {

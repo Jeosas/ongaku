@@ -52,6 +52,9 @@
 
               # Dev deps
               protobuf
+              yt-dlp
+              ffmpeg
+              jq
             ];
 
             LD_LIBRARY_PATH = lib.makeLibraryPath packages;

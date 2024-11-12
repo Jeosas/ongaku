@@ -1,8 +1,9 @@
 use console::{style, Emoji};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use log::debug;
 use std::{thread, time::Duration};
 
-use crate::{db, error::OngakuError};
+use crate::{db, error::OngakuError, yt_dlp};
 
 static SUCCESS: Emoji<'_, '_> = Emoji("✅", "");
 static INFO: Emoji<'_, '_> = Emoji(" ℹ️", "");
@@ -22,15 +23,32 @@ fn get_spinner_style() -> ProgressStyle {
 }
 
 pub fn init() -> Result<(), OngakuError> {
+    debug!("Running init command");
     db::init()
 }
 
-pub fn add(name: &str, url: &str) -> Result<(), OngakuError> {
-    println!("TODO in add command");
+pub fn add(url: &str) -> Result<(), OngakuError> {
+    debug!("Running add command");
+    let mut library = db::load()?;
+
+    let new_entry = yt_dlp::get_url_info(url)?;
+
+    debug!("Checking entry duplication");
+    if library.entries.contains_key(&new_entry.id) {
+        return Err(OngakuError::AlreadyInLibrary(new_entry.name));
+    }
+
+    debug!("Adding entry to library");
+    library
+        .entries
+        .insert(new_entry.id.to_owned(), new_entry.clone());
+
+    db::save(library)?;
+
     println!(
         "{} Successfully added {} to your library.",
         SUCCESS,
-        style(name).cyan(),
+        style(&new_entry.name).cyan(),
     );
     println!(
         "{} Run {} to download tracks.",
@@ -41,6 +59,7 @@ pub fn add(name: &str, url: &str) -> Result<(), OngakuError> {
 }
 
 pub fn sync(verify_: bool) -> Result<(), OngakuError> {
+    debug!("Running sync command");
     if verify_ {
         verify(true)?;
     };
@@ -105,6 +124,7 @@ pub fn sync(verify_: bool) -> Result<(), OngakuError> {
 }
 
 pub fn verify(from_sync: bool) -> Result<(), OngakuError> {
+    debug!("Running verify command");
     println!("{} Verifying library intergrity", Emoji("🔄", ""));
 
     {
