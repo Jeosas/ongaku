@@ -149,6 +149,7 @@ pub fn sync() -> Result<(), OngakuError> {
     );
     {
         let pb = ProgressBar::new(track_tasks.len() as u64).with_style(bar_style.clone());
+        pb.inc(0);
 
         info!("Creating thread pool");
         let cpu_count = available_parallelism()
