@@ -1,12 +1,7 @@
 use console::{style, Emoji};
-use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use log::{error, info};
-use std::{
-    num::NonZero,
-    sync::mpsc::channel,
-    thread::{self, available_parallelism},
-    time::Duration,
-};
+use std::{num::NonZero, sync::mpsc::channel, thread::available_parallelism};
 use threadpool::ThreadPool;
 
 use crate::{

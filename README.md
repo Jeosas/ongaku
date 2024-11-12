@@ -1,35 +1,42 @@
-# Rust Project template
+<div align="center">
+    <h1>Ongaku</h1>
+</div>
 
-## Initialize
+This little utility tool helps you manage your music library when using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
-### Enter nix shell
+Status: WIP
 
-#### Add direnv support (Optional)
+### Disclaimer
 
-```console
-$ echo "use flake" > .envrc
-$ direnv allow
-```
+This tool has been developed mainly for practice purposes and may seem like a huge work for a small problem.
 
-#### (OR) Manually enter shell
+It should be _overkill_ for most cases.
 
-```console
-nix develop
-```
-
-### Initialize
+A simple solution would be to add a bunch of URLs in a file and run
 
 ```console
-$ cargo init (--lib)
+$ cat url_list.txt > xargs yt-dlp \
+    -q \
+    -ciw \
+    -f "bestaudio/best" \
+    --extract-audio \
+    -o "%(artist)s/%(title)s.%(ext)s"
 ```
 
-> It is recommended to gitignore `.envrc` and its `.direnv` directory, as it can be used to set personal environment settings.
-> Also it is prefered to not add it to the remote `.gitignore` file but to the local `.git/info/exclude` one.
+This tool was created from several frustration with this method:
 
-## Environment settings
+- Downloads are sequential and thus slower than it could be with a good internet down-link,
+- I'd like to have more control on how my library is sorted.
 
-### Rust version
+## Introduction
 
-This template uses [fenix](https://github.com/nix-community/fenix) to manage the rust toolchain.
+todo!()
 
-To change the rust toolchain, edit the `latest` version tag in the `rust'` variable.
+## Dependencies
+
+- `yt-dlp`
+- `ffmpeg` (might be optional, used to extract audio from videos)
+
+## License
+
+Ongaku is MIT-licensed. For more information check the [LICENSE](./LICENSE) file.

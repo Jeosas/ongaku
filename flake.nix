@@ -25,37 +25,40 @@
         rust' = pkgs.fenix.latest; # Rust toolchain selection
 
         naersk' = pkgs.callPackage naersk {inherit (rust') cargo rustc;};
+
+        dependencies = with pkgs; [yt-dlp ffmpeg];
       in {
         defaultPackage = naersk'.buildPackage {
           src = ./.;
+          buildInputs = dependencies;
         };
 
         devShell = with pkgs;
           mkShell rec {
-            packages = [
-              # General
-              just
+            packages =
+              [
+                # General
+                just
 
-              # Nix
-              alejandra
+                # Nix
+                alejandra
 
-              # Rust
-              (rust'.withComponents [
-                "cargo"
-                "clippy"
-                "rust-src"
-                "rustc"
-                "rustfmt"
-              ])
-              rust-analyzer
-              cargo-watch
+                # Rust
+                (rust'.withComponents [
+                  "cargo"
+                  "clippy"
+                  "rust-src"
+                  "rustc"
+                  "rustfmt"
+                ])
+                rust-analyzer
+                cargo-watch
 
-              # Dev deps
-              protobuf
-              yt-dlp
-              ffmpeg
-              jq
-            ];
+                # Dev deps
+                protobuf
+                jq
+              ]
+              ++ dependencies;
 
             LD_LIBRARY_PATH = lib.makeLibraryPath packages;
           };
