@@ -34,8 +34,28 @@ todo!()
 
 ## Dependencies
 
+Runtime:
+
 - `yt-dlp`
 - `ffmpeg` (might be optional, used to extract audio from videos)
+
+Build:
+
+- `protoc`
+
+## Build
+
+With nix:
+
+```console
+$ nix build .
+```
+
+With cargo:
+
+```console
+$ cago build --release
+```
 
 ## License
 
