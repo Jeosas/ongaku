@@ -14,11 +14,6 @@ use crate::error::OngakuError;
 static DB_FILE: &str = ".ongaku.pb";
 static DB_VERSION: u32 = 1;
 
-pub fn generate_id(id: &str, entry_type: &entry::EntryType) -> String {
-    info!("Generating new id");
-    format!("{}/{}", entry_type.as_str_name(), id)
-}
-
 pub fn init() -> Result<(), OngakuError> {
     info!("Creating new library");
     let library = Library {

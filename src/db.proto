@@ -9,18 +9,9 @@ message Library {
 }
 
 message Entry {
-  enum EntryType  {
-    TITLE = 0;
-    PLAYLIST = 1;
-    ARTIST = 2;
-  }
-
-  string id = 1;
-  string original_url = 2;
-  string url = 3;
-  EntryType type = 4;
-  string name = 5;
-  repeated Track tracks = 6;
+  string url = 1;
+  string name = 2;
+  repeated Track tracks = 3;
 }
 
 message Track {

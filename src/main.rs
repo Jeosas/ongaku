@@ -24,6 +24,8 @@ enum Commands {
     Init,
     /// Add a new link to the library
     Add {
+        /// Name of the new entry
+        name: String,
         /// Youtube URL (video, song, playlist, artist)
         url: String,
     },
@@ -43,7 +45,7 @@ fn main() {
 
     match &cli.command {
         Commands::Init => command::init(),
-        Commands::Add { url } => command::add(url),
+        Commands::Add { name, url } => command::add(name, url),
         Commands::Sync => command::sync(),
 
         #[cfg(debug_assertions)]
