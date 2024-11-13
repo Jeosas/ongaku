@@ -28,9 +28,10 @@ This tool was created from several frustration with this method:
 - Downloads are sequential and thus slower than it could be with a good internet down-link,
 - I'd like to have more control on how my library is sorted.
 
-## Introduction
+## Features
 
-todo!()
+ - :rocket: Downloads tracks in parallel for faster synchronization
+ - :bulb: Follow artist pages and synchronize new tracks
 
 ## Dependencies
 
